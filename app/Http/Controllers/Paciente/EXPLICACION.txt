@@ -1,0 +1,35 @@
+EXPLICACIÓN DE LOS CONTROLADORES DE PACIENTE:
+ * 
+ * 1. PacienteDashboardController:
+ *    - Muestra resumen de citas próximas
+ *    - Estadísticas de citas (total, atendidas, pendientes)
+ *    - Recetas recientes
+ * 
+ * 2. PacienteCitaController:
+ *    - Lista todas las citas del paciente
+ *    - Permite agendar nuevas citas seleccionando médico, fecha y hora
+ *    - Valida disponibilidad del médico
+ *    - Permite cancelar citas (con 24 horas de anticipación)
+ *    - Incluye endpoint AJAX para obtener horarios disponibles
+ * 
+ * 3. PacienteRecetaController:
+ *    - Lista todas las recetas del paciente
+ *    - Muestra detalles de cada receta
+ *    - Descarga recetas en PDF con formato profesional
+ * 
+ * 4. PacienteHistorialController:
+ *    - Muestra historial médico completo
+ *    - Descarga historial en PDF
+ *    - Incluye estadísticas de consultas
+ * 
+ * 5. PacientePerfilController:
+ *    - Muestra perfil del paciente
+ *    - Permite editar datos personales
+ *    - Permite cambiar contraseña
+ *    - Valida todos los datos antes de guardar
+ * 
+ * SEGURIDAD:
+ * - Todos los controladores verifican que el usuario autenticado
+ *   sea el dueño de los datos que está consultando/modificando
+ * - Retorna error 403 si intenta acceder a datos de otro paciente
+ */

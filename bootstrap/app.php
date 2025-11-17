@@ -10,9 +10,26 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        //
+    ->withMiddleware(function (Middleware $middleware) {
+        // Registrar alias de middleware personalizados
+        $middleware->alias([
+            // Middleware para verificar roles
+            'role' => \App\Http\Middleware\CheckRole::class,
+        ]);
+
+        // Middleware que se ejecuta en todas las solicitudes web
+        $middleware->web(append: [
+            // Aquí puedes agregar middleware global si es necesario
+        ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        //
+    ->withExceptions(function (Exceptions $exceptions) {
+        // Configuración de manejo de excepciones
     })->create();
+
+/**
+ * EXPLICACIÓN:
+ * 
+ * 1. Este archivo configura la aplicación Laravel
+ * 2. Se registra el middleware 'role' que verifica permisos
+ * 3. Uso en rutas: ->middleware('role:paciente') o ->middleware('role:medico,administrador')
+ */
