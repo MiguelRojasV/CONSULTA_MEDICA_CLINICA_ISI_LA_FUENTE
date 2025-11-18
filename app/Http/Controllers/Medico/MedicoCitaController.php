@@ -1,4 +1,5 @@
-<?php 
+<?php
+
 namespace App\Http\Controllers\Medico;
 
 use App\Http\Controllers\Controller;
@@ -10,26 +11,17 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * MedicoCitaController
- * Permite al médico gestionar su agenda de citas
- * - Ver agenda filtrada por fecha
- * - Atender pacientes
- * - Registrar diagnósticos y tratamientos
+ * Ubicación: app/Http/Controllers/Medico/MedicoCitaController.php
+ * 
+ * ACTUALIZADO: Compatible con nueva estructura 3FN
  */
 class MedicoCitaController extends Controller
 {
-    /**
-     * Muestra la agenda del médico
-     * @param Request $request
-     * @return View
-     */
     public function index(Request $request): View
     {
         $medico = Auth::user()->medico;
-
-        // Obtener fecha del filtro o usar hoy por defecto
         $fecha = $request->input('fecha', now()->format('Y-m-d'));
 
-        // Obtener citas del médico para la fecha seleccionada
         $citas = $medico->citas()
             ->with('paciente')
             ->whereDate('fecha', $fecha)
@@ -39,16 +31,10 @@ class MedicoCitaController extends Controller
         return view('medico.citas.index', compact('citas', 'fecha', 'medico'));
     }
 
-    /**
-     * Muestra los detalles de una cita
-     * @param Cita $cita
-     * @return View
-     */
     public function show(Cita $cita): View
     {
         $medico = Auth::user()->medico;
 
-        // Verificar que la cita pertenezca al médico
         if ($cita->medico_id !== $medico->id) {
             abort(403, 'No tiene permisos para ver esta cita');
         }
@@ -58,23 +44,17 @@ class MedicoCitaController extends Controller
         return view('medico.citas.show', compact('cita'));
     }
 
-    /**
-     * Muestra el formulario para editar/atender una cita
-     * @param Cita $cita
-     * @return View
-     */
     public function edit(Cita $cita): View
     {
         $medico = Auth::user()->medico;
 
-        // Verificar permisos
         if ($cita->medico_id !== $medico->id) {
             abort(403, 'No tiene permisos para editar esta cita');
         }
 
-        // Cargar información del paciente con su historial
         $paciente = $cita->paciente;
         $historial = $paciente->historialMedico()
+            ->with('medico.especialidad')
             ->orderBy('fecha', 'desc')
             ->take(5)
             ->get();
@@ -82,26 +62,20 @@ class MedicoCitaController extends Controller
         return view('medico.citas.edit', compact('cita', 'paciente', 'historial'));
     }
 
-    /**
-     * Actualiza la cita con diagnóstico y tratamiento
-     * @param Request $request
-     * @param Cita $cita
-     * @return RedirectResponse
-     */
     public function update(Request $request, Cita $cita): RedirectResponse
     {
         $medico = Auth::user()->medico;
 
-        // Verificar permisos
         if ($cita->medico_id !== $medico->id) {
             abort(403, 'No tiene permisos para editar esta cita');
         }
 
-        // Validar datos
         $validated = $request->validate([
-            'diagnostico' => 'required|string',
-            'tratamiento' => 'required|string',
-            'observaciones' => 'nullable|string',
+            'diagnostico' => 'required|string|max:1000',
+            'tratamiento' => 'required|string|max:1000',
+            'observaciones' => 'nullable|string|max:500',
+            'sintomas' => 'nullable|string|max:500',
+            'signos_vitales' => 'nullable|string|max:300',
             'estado' => 'required|in:En Consulta,Atendida'
         ], [
             'diagnostico.required' => 'El diagnóstico es obligatorio',
@@ -109,14 +83,13 @@ class MedicoCitaController extends Controller
             'estado.required' => 'Debe seleccionar el estado de la cita'
         ]);
 
-        // Actualizar la cita
-        $cita->diagnostico = $validated['diagnostico'];
-        $cita->tratamiento = $validated['tratamiento'];
-        $cita->observaciones = $validated['observaciones'] ?? null;
-        $cita->estado = $validated['estado'];
-        $cita->save();
+        $cita->update([
+            'diagnostico' => $validated['diagnostico'],
+            'tratamiento' => $validated['tratamiento'],
+            'observaciones' => $validated['observaciones'] ?? null,
+            'estado' => $validated['estado'],
+        ]);
 
-        // Si se marca como atendida, crear entrada en historial médico
         if ($validated['estado'] === 'Atendida') {
             $cita->marcarComoAtendida();
         }
@@ -125,28 +98,20 @@ class MedicoCitaController extends Controller
             ->with('success', 'Cita actualizada exitosamente');
     }
 
-    /**
-     * Marca una cita como atendida rápidamente
-     * @param Cita $cita
-     * @return RedirectResponse
-     */
     public function marcarAtendida(Cita $cita): RedirectResponse
     {
         $medico = Auth::user()->medico;
 
-        // Verificar permisos
         if ($cita->medico_id !== $medico->id) {
             abort(403, 'No tiene permisos para modificar esta cita');
         }
 
-        // Verificar que tenga diagnóstico
         if (!$cita->diagnostico) {
             return back()->withErrors([
                 'error' => 'Debe registrar el diagnóstico antes de marcar como atendida'
             ]);
         }
 
-        // Marcar como atendida
         $cita->marcarComoAtendida();
 
         return redirect()->route('medico.citas.index')

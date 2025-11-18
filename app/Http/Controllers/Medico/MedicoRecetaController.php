@@ -1,4 +1,5 @@
-<?php 
+<?php
+
 namespace App\Http\Controllers\Medico;
 
 use App\Http\Controllers\Controller;
@@ -9,36 +10,38 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log; 
 
 /**
  * MedicoRecetaController
+ * Ubicación: app/Http/Controllers/Medico/MedicoRecetaController.php
+ * 
  * Permite al médico gestionar recetas médicas
- * - Ver lista de recetas emitidas
- * - Crear nuevas recetas para citas atendidas
- * - Editar recetas existentes
- * - Generar PDF de recetas
- * - Agregar medicamentos a recetas
+ * 
+ * ACTUALIZADO COMPLETO: Compatible con nueva estructura 3FN
+ * - Tabla pivot: receta_medicamento con campos adicionales
+ * - Campos nuevos: observaciones, valida_hasta
+ * - Validaciones mejoradas
  */
 class MedicoRecetaController extends Controller
 {
     /**
      * Muestra la lista de recetas emitidas por el médico
-     * @param Request $request
-     * @return View
      */
     public function index(Request $request): View
     {
         $medico = Auth::user()->medico;
 
-        // Query builder para recetas
         $query = $medico->recetas()->with(['paciente', 'cita']);
 
-        // Filtro por búsqueda (nombre paciente o CI)
+        // Filtro por búsqueda
         if ($request->filled('buscar')) {
             $buscar = $request->input('buscar');
             $query->whereHas('paciente', function($q) use ($buscar) {
                 $q->where('nombre', 'like', "%{$buscar}%")
+                  ->orWhere('apellido', 'like', "%{$buscar}%")
                   ->orWhere('ci', 'like', "%{$buscar}%");
             });
         }
@@ -51,43 +54,44 @@ class MedicoRecetaController extends Controller
             $query->whereDate('fecha_emision', '<=', $request->input('fecha_hasta'));
         }
 
-        // Filtro por mes actual (por defecto)
+        // Filtro por estado
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        // Por defecto: mes actual
         if (!$request->filled('fecha_desde') && !$request->filled('fecha_hasta')) {
             $query->whereMonth('fecha_emision', now()->month)
                   ->whereYear('fecha_emision', now()->year);
         }
 
-        // Obtener recetas paginadas
-        $recetas = $query->orderBy('fecha_emision', 'desc')
-                        ->paginate(15);
+        $recetas = $query->orderBy('fecha_emision', 'desc')->paginate(15);
 
         return view('medico.recetas.index', compact('recetas'));
     }
 
     /**
      * Muestra el formulario para crear una nueva receta
-     * @param Request $request (opcional: cita_id)
-     * @return View
      */
     public function create(Request $request): View
     {
         $medico = Auth::user()->medico;
         
-        // Si viene de una cita específica
         $cita = null;
         if ($request->filled('cita_id')) {
             $cita = Cita::with('paciente')->findOrFail($request->input('cita_id'));
             
-            // Verificar que la cita pertenezca al médico
             if ($cita->medico_id !== $medico->id) {
                 abort(403, 'No tiene permisos para crear receta para esta cita');
             }
         }
 
-        // Obtener lista de medicamentos disponibles
-        $medicamentos = Medicamento::orderBy('nombre')->get();
+        // Medicamentos disponibles con stock
+        $medicamentos = Medicamento::disponibles()
+            ->orderBy('nombre_generico')
+            ->get();
 
-        // Obtener citas atendidas sin receta (para selector)
+        // Citas atendidas sin receta
         $citasSinReceta = $medico->citas()
             ->with('paciente')
             ->where('estado', 'Atendida')
@@ -104,28 +108,26 @@ class MedicoRecetaController extends Controller
     }
 
     /**
-     * Almacena una nueva receta en la base de datos
-     * @param Request $request
-     * @return RedirectResponse
+     * Almacena una nueva receta
      */
     public function store(Request $request): RedirectResponse
     {
         $medico = Auth::user()->medico;
 
-        // Validar datos
         $validated = $request->validate([
             'cita_id' => 'required|exists:citas,id',
             'indicaciones' => 'required|string|max:1000',
             'observaciones' => 'nullable|string|max:500',
+            'valida_hasta' => 'nullable|date|after:today',
             'medicamentos' => 'required|array|min:1',
             'medicamentos.*.medicamento_id' => 'required|exists:medicamentos,id',
             'medicamentos.*.cantidad' => 'required|integer|min:1|max:999',
             'medicamentos.*.dosis' => 'required|string|max:100',
             'medicamentos.*.frecuencia' => 'required|string|max:100',
             'medicamentos.*.duracion' => 'required|string|max:100',
+            'medicamentos.*.instrucciones_especiales' => 'nullable|string|max:200',
         ], [
             'cita_id.required' => 'Debe seleccionar una cita',
-            'cita_id.exists' => 'La cita seleccionada no existe',
             'indicaciones.required' => 'Las indicaciones son obligatorias',
             'medicamentos.required' => 'Debe agregar al menos un medicamento',
             'medicamentos.*.medicamento_id.required' => 'Debe seleccionar un medicamento',
@@ -136,58 +138,69 @@ class MedicoRecetaController extends Controller
             'medicamentos.*.duracion.required' => 'La duración es obligatoria',
         ]);
 
-        // Verificar que la cita pertenezca al médico
+        // Verificar cita
         $cita = Cita::findOrFail($validated['cita_id']);
         if ($cita->medico_id !== $medico->id) {
-            abort(403, 'No tiene permisos para crear receta para esta cita');
+            abort(403);
         }
 
-        // Verificar que la cita esté atendida
         if ($cita->estado !== 'Atendida') {
             return back()->withErrors([
                 'error' => 'Solo puede crear recetas para citas atendidas'
             ])->withInput();
         }
 
-        // Crear la receta
-        $receta = new Receta();
-        $receta->medico_id = $medico->id;
-        $receta->paciente_id = $cita->paciente_id;
-        $receta->cita_id = $validated['cita_id'];
-        $receta->fecha_emision = now();
-        $receta->indicaciones = $validated['indicaciones'];
-        $receta->observaciones = $validated['observaciones'] ?? null;
-        $receta->save();
+        DB::beginTransaction();
+        try {
+            // Crear receta
+            $receta = Receta::create([
+                'medico_id' => $medico->id,
+                'paciente_id' => $cita->paciente_id,
+                'cita_id' => $validated['cita_id'],
+                'fecha_emision' => now(),
+                'indicaciones' => $validated['indicaciones'],
+                'observaciones' => $validated['observaciones'] ?? null,
+                'valida_hasta' => $validated['valida_hasta'] ?? now()->addMonths(1),
+                'estado' => 'Pendiente',
+            ]);
 
-        // Agregar medicamentos a la receta
-        foreach ($validated['medicamentos'] as $med) {
-            $receta->medicamentos()->attach($med['medicamento_id'], [
-                'cantidad' => $med['cantidad'],
-                'dosis' => $med['dosis'],
-                'frecuencia' => $med['frecuencia'],
-                'duracion' => $med['duracion'],
+            // Agregar medicamentos
+            foreach ($validated['medicamentos'] as $med) {
+                $receta->medicamentos()->attach($med['medicamento_id'], [
+                    'cantidad' => $med['cantidad'],
+                    'dosis' => $med['dosis'],
+                    'frecuencia' => $med['frecuencia'],
+                    'duracion' => $med['duracion'],
+                    'instrucciones_especiales' => $med['instrucciones_especiales'] ?? null,
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('medico.recetas.show', $receta)
+                ->with('success', 'Receta creada exitosamente');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error al crear receta: ' . $e->getMessage());
+            
+            return back()->withInput()->withErrors([
+                'error' => 'Error al crear la receta. Inténtelo nuevamente.'
             ]);
         }
-
-        return redirect()->route('medico.recetas.show', $receta)
-            ->with('success', 'Receta creada exitosamente');
     }
 
     /**
-     * Muestra los detalles de una receta específica
-     * @param Receta $receta
-     * @return View
+     * Muestra los detalles de una receta
      */
     public function show(Receta $receta): View
     {
         $medico = Auth::user()->medico;
 
-        // Verificar que la receta pertenezca al médico
         if ($receta->medico_id !== $medico->id) {
             abort(403, 'No tiene permisos para ver esta receta');
         }
 
-        // Cargar relaciones
         $receta->load(['paciente', 'cita', 'medicamentos']);
 
         return view('medico.recetas.show', compact('receta'));
@@ -195,131 +208,130 @@ class MedicoRecetaController extends Controller
 
     /**
      * Muestra el formulario para editar una receta
-     * @param Receta $receta
-     * @return View
      */
     public function edit(Receta $receta): View
     {
         $medico = Auth::user()->medico;
 
-        // Verificar permisos
         if ($receta->medico_id !== $medico->id) {
             abort(403, 'No tiene permisos para editar esta receta');
         }
 
-        // Cargar relaciones
-        $receta->load(['paciente', 'cita', 'medicamentos']);
+        // Solo se pueden editar recetas pendientes
+        if ($receta->estado !== 'Pendiente') {
+            return redirect()->route('medico.recetas.show', $receta)
+                ->with('error', 'No se pueden editar recetas ya dispensadas o canceladas');
+        }
 
-        // Obtener lista de medicamentos disponibles
-        $medicamentos = Medicamento::orderBy('nombre')->get();
+        $receta->load(['paciente', 'cita', 'medicamentos']);
+        $medicamentos = Medicamento::disponibles()->orderBy('nombre_generico')->get();
 
         return view('medico.recetas.edit', compact('receta', 'medicamentos'));
     }
 
     /**
      * Actualiza una receta existente
-     * @param Request $request
-     * @param Receta $receta
-     * @return RedirectResponse
      */
     public function update(Request $request, Receta $receta): RedirectResponse
     {
         $medico = Auth::user()->medico;
 
-        // Verificar permisos
         if ($receta->medico_id !== $medico->id) {
-            abort(403, 'No tiene permisos para editar esta receta');
+            abort(403);
         }
 
-        // Validar datos
+        if ($receta->estado !== 'Pendiente') {
+            return back()->withErrors([
+                'error' => 'No se pueden editar recetas ya dispensadas o canceladas'
+            ]);
+        }
+
         $validated = $request->validate([
             'indicaciones' => 'required|string|max:1000',
             'observaciones' => 'nullable|string|max:500',
+            'valida_hasta' => 'nullable|date|after:today',
             'medicamentos' => 'required|array|min:1',
             'medicamentos.*.medicamento_id' => 'required|exists:medicamentos,id',
             'medicamentos.*.cantidad' => 'required|integer|min:1|max:999',
             'medicamentos.*.dosis' => 'required|string|max:100',
             'medicamentos.*.frecuencia' => 'required|string|max:100',
             'medicamentos.*.duracion' => 'required|string|max:100',
-        ], [
-            'indicaciones.required' => 'Las indicaciones son obligatorias',
-            'medicamentos.required' => 'Debe agregar al menos un medicamento',
-            'medicamentos.*.medicamento_id.required' => 'Debe seleccionar un medicamento',
-            'medicamentos.*.cantidad.required' => 'La cantidad es obligatoria',
-            'medicamentos.*.cantidad.min' => 'La cantidad debe ser mayor a 0',
-            'medicamentos.*.dosis.required' => 'La dosis es obligatoria',
-            'medicamentos.*.frecuencia.required' => 'La frecuencia es obligatoria',
-            'medicamentos.*.duracion.required' => 'La duración es obligatoria',
+            'medicamentos.*.instrucciones_especiales' => 'nullable|string|max:200',
         ]);
 
-        // Actualizar receta
-        $receta->indicaciones = $validated['indicaciones'];
-        $receta->observaciones = $validated['observaciones'] ?? null;
-        $receta->save();
+        DB::beginTransaction();
+        try {
+            $receta->update([
+                'indicaciones' => $validated['indicaciones'],
+                'observaciones' => $validated['observaciones'] ?? null,
+                'valida_hasta' => $validated['valida_hasta'],
+            ]);
 
-        // Eliminar medicamentos anteriores y agregar los nuevos
-        $receta->medicamentos()->detach();
-        foreach ($validated['medicamentos'] as $med) {
-            $receta->medicamentos()->attach($med['medicamento_id'], [
-                'cantidad' => $med['cantidad'],
-                'dosis' => $med['dosis'],
-                'frecuencia' => $med['frecuencia'],
-                'duracion' => $med['duracion'],
+            // Actualizar medicamentos
+            $receta->medicamentos()->detach();
+            foreach ($validated['medicamentos'] as $med) {
+                $receta->medicamentos()->attach($med['medicamento_id'], [
+                    'cantidad' => $med['cantidad'],
+                    'dosis' => $med['dosis'],
+                    'frecuencia' => $med['frecuencia'],
+                    'duracion' => $med['duracion'],
+                    'instrucciones_especiales' => $med['instrucciones_especiales'] ?? null,
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('medico.recetas.show', $receta)
+                ->with('success', 'Receta actualizada exitosamente');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->withErrors([
+                'error' => 'Error al actualizar la receta'
             ]);
         }
-
-        return redirect()->route('medico.recetas.show', $receta)
-            ->with('success', 'Receta actualizada exitosamente');
     }
 
     /**
-     * Genera el PDF de la receta para descargar/imprimir
-     * @param Receta $receta
-     * @return \Illuminate\Http\Response
+     * Genera el PDF de la receta
      */
     public function pdf(Receta $receta)
     {
         $medico = Auth::user()->medico;
 
-        // Verificar permisos
         if ($receta->medico_id !== $medico->id) {
-            abort(403, 'No tiene permisos para descargar esta receta');
+            abort(403);
         }
 
-        // Cargar todas las relaciones necesarias
         $receta->load(['paciente', 'medico.especialidad', 'medicamentos']);
+        $clinica = \App\Models\InformacionClinica::obtenerInfo();
 
-        // Generar PDF
-        $pdf = Pdf::loadView('medico.recetas.pdf', compact('receta'));
-        
-        // Configurar tamaño y orientación
+        $pdf = Pdf::loadView('pdf.receta', compact('receta', 'clinica'));
         $pdf->setPaper('letter', 'portrait');
 
-        // Nombre del archivo
-        $nombreArchivo = 'receta_' . $receta->paciente->nombre . '_' . $receta->fecha_emision->format('Y-m-d') . '.pdf';
+        $nombreArchivo = 'receta_' . $receta->paciente->ci . '_' . $receta->fecha_emision->format('Ymd') . '.pdf';
 
-        // Retornar PDF para descarga
         return $pdf->download($nombreArchivo);
     }
 
     /**
-     * Elimina una receta (soft delete si está configurado)
-     * @param Receta $receta
-     * @return RedirectResponse
+     * Elimina una receta
      */
     public function destroy(Receta $receta): RedirectResponse
     {
         $medico = Auth::user()->medico;
 
-        // Verificar permisos
         if ($receta->medico_id !== $medico->id) {
-            abort(403, 'No tiene permisos para eliminar esta receta');
+            abort(403);
         }
 
-        // Eliminar medicamentos asociados
-        $receta->medicamentos()->detach();
+        if ($receta->estado === 'Dispensada') {
+            return back()->withErrors([
+                'error' => 'No se pueden eliminar recetas ya dispensadas'
+            ]);
+        }
 
-        // Eliminar receta
+        $receta->medicamentos()->detach();
         $receta->delete();
 
         return redirect()->route('medico.recetas.index')

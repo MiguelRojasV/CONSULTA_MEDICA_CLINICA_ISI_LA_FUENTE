@@ -1,9 +1,11 @@
-<?php 
+<?php
+
 namespace App\Http\Controllers\Paciente;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cita;
 use App\Models\Medico;
+use App\Models\Especialidad;
 use App\Models\HorarioAtencion;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -13,27 +15,45 @@ use Carbon\Carbon;
 
 /**
  * PacienteCitaController
+ * Ubicación: app/Http/Controllers/Paciente/PacienteCitaController.php
+ * 
  * Permite al paciente gestionar sus citas médicas
- * - Ver sus citas
- * - Agendar nuevas citas
- * - Cancelar citas
+ * 
+ * ACTUALIZADO: Compatible con nueva estructura 3FN
+ * - Usa medico->especialidad
+ * - Campos actualizados: tipo_cita, duracion_estimada, costo
+ * - Método marcarComoAtendida() actualizado
  */
 class PacienteCitaController extends Controller
 {
     /**
      * Lista todas las citas del paciente
+     * @param Request $request
      * @return View
      */
-    public function index(): View
+    public function index(Request $request): View
     {
         $paciente = Auth::user()->paciente;
 
+        // Query builder para citas
+        $query = $paciente->citas()->with('medico.especialidad');
+
+        // Filtro por estado
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        // Filtro por fecha
+        if ($request->filled('mes')) {
+            $mes = $request->input('mes');
+            $query->whereMonth('fecha', Carbon::parse($mes)->month)
+                  ->whereYear('fecha', Carbon::parse($mes)->year);
+        }
+
         // Obtener citas ordenadas por fecha
-        $citas = $paciente->citas()
-            ->with('medico')
-            ->orderBy('fecha', 'desc')
-            ->orderBy('hora', 'desc')
-            ->paginate(10);
+        $citas = $query->orderBy('fecha', 'desc')
+                       ->orderBy('hora', 'desc')
+                       ->paginate(10);
 
         return view('paciente.citas.index', compact('citas'));
     }
@@ -44,12 +64,19 @@ class PacienteCitaController extends Controller
      */
     public function create(): View
     {
-        // Obtener lista de médicos disponibles
-        $medicos = Medico::select('id', 'nombre', 'especialidad')
+        // Obtener especialidades activas
+        $especialidades = Especialidad::activas()
             ->orderBy('nombre')
             ->get();
 
-        return view('paciente.citas.create', compact('medicos'));
+        // Obtener médicos activos agrupados por especialidad
+        $medicos = Medico::with('especialidad')
+            ->where('estado', 'Activo')
+            ->orderBy('nombre')
+            ->get()
+            ->groupBy('especialidad_id');
+
+        return view('paciente.citas.create', compact('especialidades', 'medicos'));
     }
 
     /**
@@ -65,31 +92,44 @@ class PacienteCitaController extends Controller
         $validated = $request->validate([
             'medico_id' => 'required|exists:medicos,id',
             'fecha' => 'required|date|after_or_equal:today',
-            'hora' => 'required',
-            'motivo' => 'required|string|max:500'
+            'hora' => 'required|date_format:H:i',
+            'motivo' => 'required|string|max:500',
+            'tipo_cita' => 'nullable|in:Primera Vez,Control,Emergencia',
         ], [
             'medico_id.required' => 'Debe seleccionar un médico',
+            'medico_id.exists' => 'El médico seleccionado no existe',
             'fecha.required' => 'La fecha es obligatoria',
             'fecha.after_or_equal' => 'La fecha debe ser hoy o posterior',
             'hora.required' => 'La hora es obligatoria',
+            'hora.date_format' => 'El formato de hora no es válido',
             'motivo.required' => 'Debe indicar el motivo de la consulta',
-            'motivo.max' => 'El motivo no puede exceder 500 caracteres'
+            'motivo.max' => 'El motivo no puede exceder 500 caracteres',
         ]);
+
+        // Verificar que el médico esté activo
+        $medico = Medico::find($validated['medico_id']);
+        if ($medico->estado !== 'Activo') {
+            return back()->withInput()->withErrors([
+                'medico_id' => 'El médico seleccionado no está disponible actualmente.',
+            ]);
+        }
 
         // Crear la cita
         $cita = new Cita([
             'paciente_id' => $paciente->id,
             'medico_id' => $validated['medico_id'],
             'fecha' => $validated['fecha'],
-            'hora' => $validated['hora'],
+            'hora' => $validated['fecha'] . ' ' . $validated['hora'], // Combinar fecha y hora
             'motivo' => $validated['motivo'],
-            'estado' => 'Programada'
+            'estado' => 'Programada',
+            'tipo_cita' => $validated['tipo_cita'] ?? 'Primera Vez',
+            'duracion_estimada' => 30, // 30 minutos por defecto
         ]);
 
         // Validar que no haya conflicto de horario
         if (!$cita->validarCita()) {
             return back()->withInput()->withErrors([
-                'hora' => 'Ya existe una cita para este médico en esa fecha y hora. Por favor, seleccione otro horario.'
+                'hora' => 'Ya existe una cita para este médico en esa fecha y hora. Por favor, seleccione otro horario.',
             ]);
         }
 
@@ -114,7 +154,8 @@ class PacienteCitaController extends Controller
             abort(403, 'No tiene permisos para ver esta cita');
         }
 
-        $cita->load('medico', 'recetas.medicamentos');
+        // Cargar relaciones
+        $cita->load(['medico.especialidad', 'recetas.medicamentos']);
 
         return view('paciente.citas.show', compact('cita'));
     }
@@ -136,29 +177,34 @@ class PacienteCitaController extends Controller
         // Verificar que la cita no esté atendida
         if ($cita->estado === 'Atendida') {
             return back()->withErrors([
-                'error' => 'No se puede cancelar una cita ya atendida'
+                'error' => 'No se puede cancelar una cita ya atendida',
             ]);
         }
 
         // Verificar que la cita sea futura (al menos 24 horas antes)
-        $fechaCita = Carbon::parse($cita->fecha . ' ' . $cita->hora->format('H:i'));
-        if ($fechaCita->isPast() || $fechaCita->diffInHours(now()) < 24) {
+        $fechaHoraCita = Carbon::parse($cita->fecha->format('Y-m-d') . ' ' . $cita->hora->format('H:i:s'));
+        
+        if ($fechaHoraCita->isPast()) {
             return back()->withErrors([
-                'error' => 'Solo puede cancelar citas con al menos 24 horas de anticipación'
+                'error' => 'No se puede cancelar una cita que ya pasó',
+            ]);
+        }
+
+        if ($fechaHoraCita->diffInHours(now()) < 24) {
+            return back()->withErrors([
+                'error' => 'Solo puede cancelar citas con al menos 24 horas de anticipación',
             ]);
         }
 
         // Cancelar la cita
-        $cita->estado = 'Cancelada';
-        $cita->save();
+        $cita->cancelar();
 
         return redirect()->route('paciente.citas.index')
             ->with('success', 'Cita cancelada exitosamente');
     }
 
     /**
-     * Obtiene horarios disponibles para un médico en una fecha
-     * API endpoint para llamadas AJAX
+     * Obtiene horarios disponibles para un médico en una fecha (AJAX)
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -177,9 +223,21 @@ class PacienteCitaController extends Controller
             return response()->json(['error' => 'Médico no encontrado'], 404);
         }
 
+        // Mapeo de días en español
+        $diasMap = [
+            'Monday' => 'Lunes',
+            'Tuesday' => 'Martes',
+            'Wednesday' => 'Miércoles',
+            'Thursday' => 'Jueves',
+            'Friday' => 'Viernes',
+            'Saturday' => 'Sábado',
+            'Sunday' => 'Domingo',
+        ];
+
         // Obtener el día de la semana
-        $diaSemana = Carbon::parse($fecha)->locale('es')->dayName;
-        $diaSemana = ucfirst($diaSemana); // Capitalizar primera letra
+        $fechaCarbon = Carbon::parse($fecha);
+        $diaIngles = $fechaCarbon->format('l');
+        $diaSemana = $diasMap[$diaIngles] ?? 'Lunes';
 
         // Obtener horario del médico para ese día
         $horario = HorarioAtencion::where('medico_id', $medicoId)
@@ -190,7 +248,7 @@ class PacienteCitaController extends Controller
         if (!$horario) {
             return response()->json([
                 'disponible' => false,
-                'mensaje' => 'El médico no atiende este día'
+                'mensaje' => 'El médico no atiende este día',
             ]);
         }
 
@@ -201,9 +259,9 @@ class PacienteCitaController extends Controller
         $citasOcupadas = Cita::where('medico_id', $medicoId)
             ->where('fecha', $fecha)
             ->whereNotIn('estado', ['Cancelada'])
-            ->pluck('hora')
-            ->map(function($hora) {
-                return Carbon::parse($hora)->format('H:i');
+            ->get()
+            ->map(function($cita) {
+                return Carbon::parse($cita->hora)->format('H:i');
             })
             ->toArray();
 
@@ -211,7 +269,8 @@ class PacienteCitaController extends Controller
 
         return response()->json([
             'disponible' => true,
-            'horarios' => array_values($slotsDisponibles)
+            'horarios' => array_values($slotsDisponibles),
+            'horario_atencion' => $horario->horarioFormateado(),
         ]);
     }
 }

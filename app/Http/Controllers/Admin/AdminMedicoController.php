@@ -1,90 +1,123 @@
-<?php 
+<?php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Medico;
+use App\Models\Especialidad;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log; 
 
 /**
  * AdminMedicoController
+ * Ubicación: app/Http/Controllers/Admin/AdminMedicoController.php
+ * 
  * CRUD completo de médicos
+ * ACTUALIZADO: Usa relación con especialidades (3FN)
  */
 class AdminMedicoController extends Controller
 {
     /**
      * Lista todos los médicos
-     * @param Request $request
-     * @return View
      */
     public function index(Request $request): View
     {
-        $query = Medico::query();
+        $query = Medico::with('especialidad');
 
         // Búsqueda
         if ($request->filled('buscar')) {
             $buscar = $request->input('buscar');
             $query->where(function($q) use ($buscar) {
                 $q->where('nombre', 'like', "%{$buscar}%")
+                  ->orWhere('apellido', 'like', "%{$buscar}%")
                   ->orWhere('ci', 'like', "%{$buscar}%")
-                  ->orWhere('especialidad', 'like', "%{$buscar}%");
+                  ->orWhere('matricula', 'like', "%{$buscar}%");
             });
         }
 
         // Filtro por especialidad
-        if ($request->filled('especialidad')) {
-            $query->where('especialidad', $request->input('especialidad'));
+        if ($request->filled('especialidad_id')) {
+            $query->where('especialidad_id', $request->input('especialidad_id'));
+        }
+
+        // Filtro por estado
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->input('estado'));
+        }
+
+        // Filtro por turno
+        if ($request->filled('turno')) {
+            $query->where('turno', $request->input('turno'));
         }
 
         $medicos = $query->orderBy('nombre')->paginate(15);
 
-        // Obtener especialidades únicas para el filtro
-        $especialidades = Medico::distinct()->pluck('especialidad');
+        // Para los filtros
+        $especialidades = Especialidad::activas()->orderBy('nombre')->get();
 
         return view('admin.medicos.index', compact('medicos', 'especialidades'));
     }
 
     /**
      * Muestra el formulario para crear un nuevo médico
-     * @return View
      */
     public function create(): View
     {
-        return view('admin.medicos.create');
+        $especialidades = Especialidad::activas()->orderBy('nombre')->get();
+        return view('admin.medicos.create', compact('especialidades'));
     }
 
     /**
      * Guarda un nuevo médico
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
+            // Datos de usuario
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
+            
+            // Datos personales
+            'nombre' => 'required|string|max:100',
+            'apellido' => 'required|string|max:100',
             'ci' => [
                 'required',
                 'string',
-                'min:7',
-                'max:8',
-                'regex:/^[0-9]+$/',
-                'unique:medicos'
+                'regex:/^\d{7,8}$/',
+                'unique:medicos,ci'
             ],
-            'especialidad' => 'required|string|max:100',
+            'telefono' => [
+                'required',
+                'string',
+                'regex:/^\d{7,8}$/',
+            ],
+            
+            // Datos profesionales
+            'especialidad_id' => 'required|exists:especialidades,id',
+            'matricula' => [
+                'required',
+                'string',
+                'max:50',
+                'unique:medicos,matricula'
+            ],
             'registro_profesional' => 'nullable|string|max:50',
-            'turno' => 'nullable|string|max:50',
-            'telefono' => 'nullable|string|max:20',
-            'formacion_continua' => 'nullable|string'
+            'años_experiencia' => 'nullable|integer|min:0|max:70',
+            'turno' => 'nullable|in:Mañana,Tarde,Noche,Rotativo',
+            'consultorio' => 'nullable|string|max:100',
+            'formacion_continua' => 'nullable|string|max:1000',
+            'fecha_contratacion' => 'nullable|date|before_or_equal:today',
         ], [
-            'ci.regex' => 'El CI solo debe contener números',
-            'ci.min' => 'El CI debe tener al menos 7 dígitos',
-            'ci.max' => 'El CI no puede tener más de 8 dígitos'
+            'ci.regex' => 'El CI debe tener entre 7 y 8 dígitos',
+            'ci.unique' => 'Este CI ya está registrado',
+            'telefono.regex' => 'El teléfono debe tener entre 7 y 8 dígitos',
+            'matricula.unique' => 'Esta matrícula ya está registrada',
+            'años_experiencia.min' => 'Los años de experiencia no pueden ser negativos',
+            'años_experiencia.max' => 'Los años de experiencia no pueden exceder 70',
         ]);
 
         DB::beginTransaction();
@@ -92,7 +125,7 @@ class AdminMedicoController extends Controller
         try {
             // Crear usuario con rol médico
             $user = User::create([
-                'name' => $validated['name'],
+                'name' => $validated['nombre'] . ' ' . $validated['apellido'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
                 'role' => 'medico'
@@ -102,12 +135,19 @@ class AdminMedicoController extends Controller
             Medico::create([
                 'user_id' => $user->id,
                 'ci' => $validated['ci'],
-                'nombre' => $validated['name'],
-                'especialidad' => $validated['especialidad'],
+                'nombre' => $validated['nombre'],
+                'apellido' => $validated['apellido'],
+                'especialidad_id' => $validated['especialidad_id'],
+                'matricula' => $validated['matricula'],
                 'registro_profesional' => $validated['registro_profesional'] ?? null,
+                'años_experiencia' => $validated['años_experiencia'] ?? 0,
                 'turno' => $validated['turno'] ?? null,
-                'telefono' => $validated['telefono'] ?? null,
-                'formacion_continua' => $validated['formacion_continua'] ?? null
+                'consultorio' => $validated['consultorio'] ?? null,
+                'telefono' => $validated['telefono'],
+                'email' => $validated['email'],
+                'formacion_continua' => $validated['formacion_continua'] ?? null,
+                'fecha_contratacion' => $validated['fecha_contratacion'] ?? now(),
+                'estado' => 'Activo',
             ]);
 
             DB::commit();
@@ -117,91 +157,122 @@ class AdminMedicoController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Error al crear médico: ' . $e->getMessage());
             return back()->withInput()->withErrors(['error' => 'Error al crear el médico']);
         }
     }
 
     /**
      * Muestra los detalles de un médico
-     * @param Medico $medico
-     * @return View
      */
     public function show(Medico $medico): View
     {
-        $medico->load(['citas.paciente', 'recetas']);
+        $medico->load(['especialidad', 'citas.paciente', 'recetas']);
 
         // Estadísticas
         $totalCitas = $medico->citas()->count();
         $citasAtendidas = $medico->citas()->where('estado', 'Atendida')->count();
         $totalRecetas = $medico->recetas()->count();
-        $totalPacientes = $medico->citas()->distinct('paciente_id')->count('paciente_id');
+        $totalPacientes = $medico->contarPacientesAtendidos();
+
+        // Próximas citas
+        $proximasCitas = $medico->citas()
+            ->with('paciente')
+            ->where('fecha', '>=', today())
+            ->whereIn('estado', ['Programada', 'Confirmada'])
+            ->orderBy('fecha')
+            ->orderBy('hora')
+            ->take(5)
+            ->get();
 
         return view('admin.medicos.show', compact(
             'medico',
             'totalCitas',
             'citasAtendidas',
             'totalRecetas',
-            'totalPacientes'
+            'totalPacientes',
+            'proximasCitas'
         ));
     }
 
     /**
      * Muestra el formulario para editar un médico
-     * @param Medico $medico
-     * @return View
      */
     public function edit(Medico $medico): View
     {
         $user = $medico->user;
-        return view('admin.medicos.edit', compact('medico', 'user'));
+        $especialidades = Especialidad::activas()->orderBy('nombre')->get();
+        
+        return view('admin.medicos.edit', compact('medico', 'user', 'especialidades'));
     }
 
     /**
      * Actualiza un médico
-     * @param Request $request
-     * @param Medico $medico
-     * @return RedirectResponse
      */
     public function update(Request $request, Medico $medico): RedirectResponse
     {
         $user = $medico->user;
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:6|confirmed',
+            'password' => 'nullable|string|min:8|confirmed',
+            'nombre' => 'required|string|max:100',
+            'apellido' => 'required|string|max:100',
             'ci' => [
                 'required',
                 'string',
-                'min:7',
-                'max:8',
-                'regex:/^[0-9]+$/',
+                'regex:/^\d{7,8}$/',
                 'unique:medicos,ci,' . $medico->id
             ],
-            'especialidad' => 'required|string|max:100',
+            'telefono' => [
+                'required',
+                'string',
+                'regex:/^\d{7,8}$/',
+            ],
+            'especialidad_id' => 'required|exists:especialidades,id',
+            'matricula' => [
+                'required',
+                'string',
+                'max:50',
+                'unique:medicos,matricula,' . $medico->id
+            ],
             'registro_profesional' => 'nullable|string|max:50',
-            'turno' => 'nullable|string|max:50',
-            'telefono' => 'nullable|string|max:20',
-            'formacion_continua' => 'nullable|string'
+            'años_experiencia' => 'nullable|integer|min:0|max:70',
+            'turno' => 'nullable|in:Mañana,Tarde,Noche,Rotativo',
+            'consultorio' => 'nullable|string|max:100',
+            'formacion_continua' => 'nullable|string|max:1000',
+            'fecha_contratacion' => 'nullable|date|before_or_equal:today',
+            'estado' => 'required|in:Activo,Inactivo,Licencia',
         ]);
 
         // Actualizar usuario
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
+        $user->update([
+            'name' => $validated['nombre'] . ' ' . $validated['apellido'],
+            'email' => $validated['email'],
+        ]);
+
         if ($request->filled('password')) {
-            $user->password = Hash::make($validated['password']);
+            $user->update([
+                'password' => Hash::make($validated['password'])
+            ]);
         }
-        $user->save();
 
         // Actualizar médico
         $medico->update([
             'ci' => $validated['ci'],
-            'nombre' => $validated['name'],
-            'especialidad' => $validated['especialidad'],
+            'nombre' => $validated['nombre'],
+            'apellido' => $validated['apellido'],
+            'especialidad_id' => $validated['especialidad_id'],
+            'matricula' => $validated['matricula'],
             'registro_profesional' => $validated['registro_profesional'] ?? null,
+            'años_experiencia' => $validated['años_experiencia'] ?? 0,
             'turno' => $validated['turno'] ?? null,
-            'telefono' => $validated['telefono'] ?? null,
-            'formacion_continua' => $validated['formacion_continua'] ?? null
+            'consultorio' => $validated['consultorio'] ?? null,
+            'telefono' => $validated['telefono'],
+            'email' => $validated['email'],
+            'formacion_continua' => $validated['formacion_continua'] ?? null,
+            'fecha_contratacion' => $validated['fecha_contratacion'],
+            'estado' => $validated['estado'],
         ]);
 
         return redirect()->route('admin.medicos.show', $medico)
@@ -210,30 +281,31 @@ class AdminMedicoController extends Controller
 
     /**
      * Elimina un médico
-     * @param Medico $medico
-     * @return RedirectResponse
      */
     public function destroy(Medico $medico): RedirectResponse
     {
         DB::beginTransaction();
 
         try {
-            $user = $medico->user;
-            
             // Verificar si tiene citas pendientes
             $citasPendientes = $medico->citas()
                 ->whereIn('estado', ['Programada', 'Confirmada'])
-                ->where('fecha', '>=', now())
+                ->where('fecha', '>=', today())
                 ->count();
 
             if ($citasPendientes > 0) {
                 return back()->withErrors([
-                    'error' => 'No se puede eliminar el médico porque tiene citas pendientes'
+                    'error' => "No se puede eliminar el médico porque tiene {$citasPendientes} citas pendientes"
                 ]);
             }
 
+            $user = $medico->user;
+            
             $medico->delete();
-            $user->delete();
+            
+            if ($user) {
+                $user->delete();
+            }
 
             DB::commit();
 
@@ -242,6 +314,7 @@ class AdminMedicoController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Error al eliminar médico: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Error al eliminar el médico']);
         }
     }

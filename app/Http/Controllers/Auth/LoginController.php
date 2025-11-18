@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
@@ -6,78 +7,88 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 
-/**
- * LoginController
- * Gestiona el proceso de inicio de sesión de usuarios
- * Redirige según el rol del usuario autenticado
- */
 class LoginController extends Controller
 {
-    /**
-     * Muestra el formulario de login
-     * @return View
-     */
     public function showLoginForm(): View
     {
         return view('auth.login');
     }
 
-    /**
-     * Procesa el intento de inicio de sesión
-     * @param Request $request
-     * @return RedirectResponse
-     */
     public function login(Request $request): RedirectResponse
     {
-        // Validar los datos de entrada
         $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required|string|min:6'
-        ], [
-            'email.required' => 'El correo electrónico es obligatorio',
-            'email.email' => 'El formato del correo no es válido',
-            'password.required' => 'La contraseña es obligatoria',
-            'password.min' => 'La contraseña debe tener al menos 6 caracteres'
         ]);
 
-        // Verificar si quiere recordar la sesión
-        $remember = $request->filled('remember');
+        $this->verificarIntentosFallidos($request);
 
-        // Intentar autenticar al usuario
+        $remember = $request->boolean('remember');
+
         if (Auth::attempt($credentials, $remember)) {
-            // Regenerar la sesión para prevenir ataques de fijación de sesión
+
+            RateLimiter::clear($this->throttleKey($request));
+
             $request->session()->regenerate();
 
-            // Obtener el usuario autenticado
             $user = Auth::user();
 
-            // Redirigir según el rol del usuario
+            // Validación corregida
+            if (!$user->tienePerfilCompleto()) {
+                Auth::logout();
+
+                return back()->withErrors([
+                    'email' => 'Tu perfil no está completo. Contacta al administrador.',
+                ]);
+            }
+
             return $this->redirectToDashboard($user->role);
         }
 
-        // Si la autenticación falla, regresar con error
+        RateLimiter::hit($this->throttleKey($request));
+
         return back()->withErrors([
             'email' => 'Las credenciales proporcionadas no coinciden con nuestros registros.',
         ])->onlyInput('email');
     }
 
-    /**
-     * Redirige al dashboard correspondiente según el rol
-     * @param string $role
-     * @return RedirectResponse
-     */
+    protected function verificarIntentosFallidos(Request $request): void
+    {
+        $key = $this->throttleKey($request);
+
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            $seconds = RateLimiter::availableIn($key);
+
+            throw ValidationException::withMessages([
+                'email' => "Demasiados intentos. Intenta en {$seconds} segundos.",
+            ]);
+        }
+    }
+
+    protected function throttleKey(Request $request): string
+    {
+        return strtolower($request->input('email')) . '|' . $request->ip();
+    }
+
     private function redirectToDashboard(string $role): RedirectResponse
     {
+        $user = Auth::user();
+
         return match($role) {
             'paciente' => redirect()->route('paciente.dashboard')
-                ->with('success', '¡Bienvenido! Has iniciado sesión correctamente.'),
+                ->with('success', "¡Bienvenido {$user->name}!"),
+                
             'medico' => redirect()->route('medico.dashboard')
-                ->with('success', '¡Bienvenido Dr/Dra! Has iniciado sesión correctamente.'),
+                ->with('success', "¡Bienvenido Dr(a). {$user->name}!"),
+                
             'administrador' => redirect()->route('admin.dashboard')
-                ->with('success', '¡Bienvenido Administrador! Has iniciado sesión correctamente.'),
+                ->with('success', "¡Bienvenido Administrador!"),
+                
             default => redirect()->route('home')
-                ->with('error', 'Rol de usuario no reconocido.'),
+                ->with('error', 'Rol no reconocido.'),
         };
     }
 }

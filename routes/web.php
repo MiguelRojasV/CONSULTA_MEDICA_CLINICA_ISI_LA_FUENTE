@@ -268,6 +268,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:administrador'
      * CRUD completo de médicos
      */
     Route::resource('medicos', AdminMedicoController::class);
+    Route::get('/perfil/password/editar', [MedicoPerfilController::class, 'editPassword'])
+    ->name('perfil.password.edit');
+
+Route::put('/perfil/password', [MedicoPerfilController::class, 'updatePassword'])
+    ->name('perfil.password.update');
+
+// Horarios de atención
+Route::get('/perfil/horarios', [MedicoPerfilController::class, 'horarios'])
+    ->name('perfil.horarios');
 
     /**
      * Gestión Completa de Citas

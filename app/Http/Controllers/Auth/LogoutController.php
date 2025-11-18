@@ -1,4 +1,5 @@
-<?php 
+<?php
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
@@ -8,7 +9,10 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * LogoutController
+ * Ubicación: app/Http/Controllers/Auth/LogoutController.php
+ * 
  * Gestiona el cierre de sesión de usuarios
+ * Limpia la sesión y redirige al inicio
  */
 class LogoutController extends Controller
 {
@@ -19,17 +23,20 @@ class LogoutController extends Controller
      */
     public function logout(Request $request): RedirectResponse
     {
+        // Obtener nombre del usuario antes de cerrar sesión
+        $userName = Auth::user()->name ?? 'Usuario';
+
         // Cerrar la sesión del usuario
         Auth::logout();
 
-        // Invalidar la sesión
+        // Invalidar la sesión actual
         $request->session()->invalidate();
 
-        // Regenerar el token CSRF
+        // Regenerar el token CSRF para seguridad
         $request->session()->regenerateToken();
 
-        // Redirigir a la página de inicio
+        // Redirigir a la página de inicio con mensaje
         return redirect()->route('home')
-            ->with('success', 'Has cerrado sesión correctamente.');
+            ->with('success', "Hasta pronto, {$userName}. Has cerrado sesión correctamente.");
     }
 }

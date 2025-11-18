@@ -1,4 +1,5 @@
-<?php 
+<?php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -11,39 +12,33 @@ use Illuminate\View\View;
 
 /**
  * AdminCitaController
- * CRUD completo de citas
+ * Ubicación: app/Http/Controllers/Admin/AdminCitaController.php
+ * 
+ * ACTUALIZADO: Campos nuevos tipo_cita, duracion_estimada, costo
  */
 class AdminCitaController extends Controller
 {
-    /**
-     * Lista todas las citas
-     * @param Request $request
-     * @return View
-     */
     public function index(Request $request): View
     {
-        $query = Cita::with(['paciente', 'medico']);
+        $query = Cita::with(['paciente', 'medico.especialidad']);
 
-        // Filtro por fecha
         if ($request->filled('fecha')) {
             $query->whereDate('fecha', $request->input('fecha'));
         }
 
-        // Filtro por estado
         if ($request->filled('estado')) {
             $query->where('estado', $request->input('estado'));
         }
 
-        // Filtro por médico
         if ($request->filled('medico_id')) {
             $query->where('medico_id', $request->input('medico_id'));
         }
 
-        // Búsqueda por paciente
         if ($request->filled('buscar')) {
             $buscar = $request->input('buscar');
             $query->whereHas('paciente', function($q) use ($buscar) {
                 $q->where('nombre', 'like', "%{$buscar}%")
+                  ->orWhere('apellido', 'like', "%{$buscar}%")
                   ->orWhere('ci', 'like', "%{$buscar}%");
             });
         }
@@ -52,41 +47,53 @@ class AdminCitaController extends Controller
             ->orderBy('hora', 'desc')
             ->paginate(20);
 
-        // Para los filtros
-        $medicos = Medico::select('id', 'nombre')->orderBy('nombre')->get();
+        $medicos = Medico::with('especialidad')
+            ->where('estado', 'Activo')
+            ->orderBy('nombre')
+            ->get();
 
         return view('admin.citas.index', compact('citas', 'medicos'));
     }
 
-    /**
-     * Muestra el formulario para crear una nueva cita
-     * @return View
-     */
     public function create(): View
     {
-        $pacientes = Paciente::select('id', 'nombre', 'ci')->orderBy('nombre')->get();
-        $medicos = Medico::select('id', 'nombre', 'especialidad')->orderBy('nombre')->get();
+        $pacientes = Paciente::select('id', 'nombre', 'apellido', 'ci')
+            ->orderBy('nombre')
+            ->get();
+        
+        $medicos = Medico::with('especialidad')
+            ->where('estado', 'Activo')
+            ->orderBy('nombre')
+            ->get();
 
         return view('admin.citas.create', compact('pacientes', 'medicos'));
     }
 
-    /**
-     * Guarda una nueva cita
-     * @param Request $request
-     * @return RedirectResponse
-     */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'paciente_id' => 'required|exists:pacientes,id',
             'medico_id' => 'required|exists:medicos,id',
             'fecha' => 'required|date|after_or_equal:today',
-            'hora' => 'required',
-            'motivo' => 'nullable|string',
+            'hora' => 'required|date_format:H:i',
+            'motivo' => 'nullable|string|max:500',
+            'tipo_cita' => 'nullable|in:Primera Vez,Control,Emergencia',
+            'duracion_estimada' => 'nullable|integer|min:15|max:480',
+            'costo' => 'nullable|numeric|min:0',
             'estado' => 'required|in:Programada,Confirmada,En Consulta,Atendida,Cancelada'
         ]);
 
-        $cita = new Cita($validated);
+        $cita = new Cita([
+            'paciente_id' => $validated['paciente_id'],
+            'medico_id' => $validated['medico_id'],
+            'fecha' => $validated['fecha'],
+            'hora' => $validated['fecha'] . ' ' . $validated['hora'],
+            'motivo' => $validated['motivo'] ?? null,
+            'tipo_cita' => $validated['tipo_cita'] ?? 'Primera Vez',
+            'duracion_estimada' => $validated['duracion_estimada'] ?? 30,
+            'costo' => $validated['costo'] ?? 0,
+            'estado' => $validated['estado'],
+        ]);
 
         if (!$cita->validarCita()) {
             return back()->withInput()->withErrors([
@@ -100,51 +107,57 @@ class AdminCitaController extends Controller
             ->with('success', 'Cita creada exitosamente');
     }
 
-    /**
-     * Muestra los detalles de una cita
-     * @param Cita $cita
-     * @return View
-     */
     public function show(Cita $cita): View
     {
-        $cita->load(['paciente', 'medico', 'recetas.medicamentos']);
+        $cita->load(['paciente', 'medico.especialidad', 'recetas.medicamentos', 'historialMedico']);
         return view('admin.citas.show', compact('cita'));
     }
 
-    /**
-     * Muestra el formulario para editar una cita
-     * @param Cita $cita
-     * @return View
-     */
     public function edit(Cita $cita): View
     {
-        $pacientes = Paciente::select('id', 'nombre', 'ci')->orderBy('nombre')->get();
-        $medicos = Medico::select('id', 'nombre', 'especialidad')->orderBy('nombre')->get();
+        $pacientes = Paciente::select('id', 'nombre', 'apellido', 'ci')
+            ->orderBy('nombre')
+            ->get();
+        
+        $medicos = Medico::with('especialidad')
+            ->where('estado', 'Activo')
+            ->orderBy('nombre')
+            ->get();
 
         return view('admin.citas.edit', compact('cita', 'pacientes', 'medicos'));
     }
 
-    /**
-     * Actualiza una cita
-     * @param Request $request
-     * @param Cita $cita
-     * @return RedirectResponse
-     */
     public function update(Request $request, Cita $cita): RedirectResponse
     {
         $validated = $request->validate([
             'paciente_id' => 'required|exists:pacientes,id',
             'medico_id' => 'required|exists:medicos,id',
             'fecha' => 'required|date',
-            'hora' => 'required',
-            'motivo' => 'nullable|string',
-            'diagnostico' => 'nullable|string',
-            'tratamiento' => 'nullable|string',
-            'observaciones' => 'nullable|string',
+            'hora' => 'required|date_format:H:i',
+            'motivo' => 'nullable|string|max:500',
+            'diagnostico' => 'nullable|string|max:1000',
+            'tratamiento' => 'nullable|string|max:1000',
+            'observaciones' => 'nullable|string|max:500',
+            'tipo_cita' => 'nullable|in:Primera Vez,Control,Emergencia',
+            'duracion_estimada' => 'nullable|integer|min:15|max:480',
+            'costo' => 'nullable|numeric|min:0',
             'estado' => 'required|in:Programada,Confirmada,En Consulta,Atendida,Cancelada'
         ]);
 
-        $cita->fill($validated);
+        $cita->fill([
+            'paciente_id' => $validated['paciente_id'],
+            'medico_id' => $validated['medico_id'],
+            'fecha' => $validated['fecha'],
+            'hora' => $validated['fecha'] . ' ' . $validated['hora'],
+            'motivo' => $validated['motivo'],
+            'diagnostico' => $validated['diagnostico'],
+            'tratamiento' => $validated['tratamiento'],
+            'observaciones' => $validated['observaciones'],
+            'tipo_cita' => $validated['tipo_cita'] ?? 'Primera Vez',
+            'duracion_estimada' => $validated['duracion_estimada'] ?? 30,
+            'costo' => $validated['costo'] ?? 0,
+            'estado' => $validated['estado'],
+        ]);
 
         if (!$cita->validarCita()) {
             return back()->withInput()->withErrors([
@@ -154,17 +167,22 @@ class AdminCitaController extends Controller
 
         $cita->save();
 
+        if ($validated['estado'] === 'Atendida' && $validated['diagnostico']) {
+            $cita->marcarComoAtendida();
+        }
+
         return redirect()->route('admin.citas.show', $cita)
             ->with('success', 'Cita actualizada exitosamente');
     }
 
-    /**
-     * Elimina una cita
-     * @param Cita $cita
-     * @return RedirectResponse
-     */
     public function destroy(Cita $cita): RedirectResponse
     {
+        if ($cita->estado === 'Atendida') {
+            return back()->withErrors([
+                'error' => 'No se puede eliminar una cita ya atendida'
+            ]);
+        }
+
         $cita->delete();
 
         return redirect()->route('admin.citas.index')

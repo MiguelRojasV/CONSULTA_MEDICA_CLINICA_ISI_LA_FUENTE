@@ -1,15 +1,21 @@
 <?php
+
 namespace App\Http\Controllers\Medico;
 
 use App\Http\Controllers\Controller;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 /**
  * MedicoDashboardController
+ * Ubicación: app/Http/Controllers/Medico/MedicoDashboardController.php
+ * 
  * Controla el panel principal del médico
  * Muestra agenda del día, estadísticas y accesos rápidos
+ * 
+ * ACTUALIZADO: Compatible con nueva estructura 3FN
+ * - Usa medico->especialidad (relación)
+ * - Campos actualizados según nueva BD
  */
 class MedicoDashboardController extends Controller
 {
@@ -23,21 +29,32 @@ class MedicoDashboardController extends Controller
         $user = Auth::user();
         $medico = $user->medico;
 
-        // Obtener citas de hoy
-        $citasHoy = $medico->citasHoy()->get();
+        // Verificar que el perfil esté completo
+        if (!$medico) {
+            return redirect()->route('home')
+                ->with('error', 'No se encontró su perfil de médico. Contacte al administrador.');
+        }
+
+        // Cargar especialidad
+        $medico->load('especialidad');
+
+        // Obtener citas de hoy con pacientes
+        $citasHoy = $medico->citasHoy()
+            ->with('paciente')
+            ->get();
 
         // Estadísticas generales
         $totalCitas = $medico->citas()->count();
         $citasAtendidas = $medico->citas()->where('estado', 'Atendida')->count();
         $citasPendientes = $medico->citas()
             ->whereIn('estado', ['Programada', 'Confirmada'])
-            ->where('fecha', '>=', now())
+            ->where('fecha', '>=', today())
             ->count();
 
         // Próximas citas (siguiente semana)
         $proximasCitas = $medico->citas()
             ->with('paciente')
-            ->whereBetween('fecha', [now(), now()->addWeek()])
+            ->whereBetween('fecha', [today(), today()->addWeek()])
             ->whereIn('estado', ['Programada', 'Confirmada'])
             ->orderBy('fecha')
             ->orderBy('hora')
@@ -50,6 +67,9 @@ class MedicoDashboardController extends Controller
             ->whereYear('fecha_emision', now()->year)
             ->count();
 
+        // Total de pacientes atendidos
+        $totalPacientes = $medico->contarPacientesAtendidos();
+
         return view('medico.dashboard', compact(
             'medico',
             'citasHoy',
@@ -57,7 +77,8 @@ class MedicoDashboardController extends Controller
             'citasAtendidas',
             'citasPendientes',
             'proximasCitas',
-            'recetasEsteMes'
+            'recetasEsteMes',
+            'totalPacientes'
         ));
     }
 }
