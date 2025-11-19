@@ -1,3 +1,8 @@
+{{-- ============================================ --}}
+{{-- resources/views/home.blade.php --}}
+{{-- Página Principal Actualizada - Compatible con BD 3FN --}}
+{{-- ============================================ --}}
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,10 +12,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Estilos personalizados para animaciones suaves */
-        .fade-in {
-            animation: fadeIn 0.8s ease-in;
-        }
+        .fade-in { animation: fadeIn 0.8s ease-in; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -19,14 +21,10 @@
 </head>
 <body class="bg-gray-50">
 
-    {{-- ============================================ --}}
-    {{-- NAVBAR - Barra de navegación superior --}}
-    {{-- Contiene: Logo, nombre de clínica, enlaces de login/registro --}}
-    {{-- ============================================ --}}
+    {{-- NAVBAR --}}
     <nav class="bg-white shadow-lg sticky top-0 z-50">
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
-                {{-- Logo y nombre --}}
                 <div class="flex items-center space-x-3">
                     <div class="bg-blue-600 p-3 rounded-full">
                         <i class="fas fa-hospital text-white text-2xl"></i>
@@ -37,37 +35,26 @@
                     </div>
                 </div>
 
-                {{-- Enlaces de navegación --}}
                 <div class="flex items-center space-x-4">
-                    {{-- Si el usuario está autenticado, mostrar botón de dashboard --}}
                     @auth
-                        <a href="{{ 
-                            auth()->user()->esPaciente() ? route('paciente.dashboard') : 
-                            (auth()->user()->esMedico() ? route('medico.dashboard') : route('admin.dashboard'))
-                        }}" 
+                        <a href="{{ auth()->user()->rutaDashboard() }}" 
                            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-                            <i class="fas fa-home mr-2"></i>
-                            Mi Panel
+                            <i class="fas fa-home mr-2"></i>Mi Panel
                         </a>
                         <form action="{{ route('logout') }}" method="POST" class="inline">
                             @csrf
-                            <button type="submit" 
-                                    class="text-gray-600 hover:text-gray-800 transition">
-                                <i class="fas fa-sign-out-alt mr-2"></i>
-                                Cerrar Sesión
+                            <button type="submit" class="text-gray-600 hover:text-gray-800 transition">
+                                <i class="fas fa-sign-out-alt mr-2"></i>Cerrar Sesión
                             </button>
                         </form>
                     @else
-                        {{-- Si no está autenticado, mostrar login y registro --}}
                         <a href="{{ route('login') }}" 
                            class="text-gray-700 hover:text-blue-600 transition font-semibold">
-                            <i class="fas fa-sign-in-alt mr-2"></i>
-                            Iniciar Sesión
+                            <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
                         </a>
                         <a href="{{ route('register') }}" 
                            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
-                            <i class="fas fa-user-plus mr-2"></i>
-                            Registrarse
+                            <i class="fas fa-user-plus mr-2"></i>Registrarse
                         </a>
                     @endauth
                 </div>
@@ -75,55 +62,42 @@
         </div>
     </nav>
 
-    {{-- ============================================ --}}
-    {{-- SECCIÓN HERO - Banner principal --}}
-    {{-- Muestra: Título principal, descripción y CTA --}}
-    {{-- ============================================ --}}
+    {{-- HERO SECTION --}}
     <section class="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
         <div class="container mx-auto px-4">
             <div class="max-w-4xl mx-auto text-center fade-in">
-                <h2 class="text-5xl font-bold mb-6">
-                    Bienvenido a {{ $clinica->nombre }}
-                </h2>
+                <h2 class="text-5xl font-bold mb-6">Bienvenido a {{ $clinica->nombre }}</h2>
                 <p class="text-xl mb-8 text-blue-100">
                     {{ $clinica->descripcion ?? 'Tu salud es nuestra prioridad. Atención médica de calidad con calidez humana.' }}
                 </p>
-                <div class="flex justify-center space-x-4">
-                    @guest
+                @guest
+                    <div class="flex justify-center space-x-4">
                         <a href="{{ route('register') }}" 
                            class="bg-white text-blue-600 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition shadow-lg text-lg">
-                            <i class="fas fa-calendar-check mr-2"></i>
-                            Agendar Cita Ahora
+                            <i class="fas fa-calendar-check mr-2"></i>Agendar Cita Ahora
                         </a>
                         <a href="#servicios" 
                            class="bg-blue-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-blue-400 transition shadow-lg text-lg">
-                            <i class="fas fa-info-circle mr-2"></i>
-                            Conocer Más
+                            <i class="fas fa-info-circle mr-2"></i>Conocer Más
                         </a>
-                    @endguest
-                </div>
+                    </div>
+                @endguest
             </div>
         </div>
     </section>
 
-    {{-- ============================================ --}}
-    {{-- SECCIÓN SERVICIOS --}}
-    {{-- Muestra los servicios que ofrece la clínica --}}
-    {{-- Lista obtenida desde la base de datos --}}
-    {{-- ============================================ --}}
+    {{-- SERVICIOS --}}
     <section id="servicios" class="py-16 bg-white">
         <div class="container mx-auto px-4">
             <div class="text-center mb-12">
                 <h2 class="text-4xl font-bold text-gray-800 mb-4">
-                    <i class="fas fa-stethoscope text-blue-600 mr-3"></i>
-                    Nuestros Servicios
+                    <i class="fas fa-stethoscope text-blue-600 mr-3"></i>Nuestros Servicios
                 </h2>
                 <p class="text-gray-600 max-w-2xl mx-auto">
                     Ofrecemos atención médica integral con especialistas calificados
                 </p>
             </div>
 
-            {{-- Grid de servicios --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($servicios as $servicio)
                     <div class="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-md hover:shadow-xl transition duration-300 border border-blue-100">
@@ -132,9 +106,7 @@
                                 <i class="fas fa-check text-white text-xl"></i>
                             </div>
                             <div>
-                                <h3 class="font-semibold text-gray-800 text-lg mb-2">
-                                    {{ $servicio }}
-                                </h3>
+                                <h3 class="font-semibold text-gray-800 text-lg mb-2">{{ $servicio }}</h3>
                             </div>
                         </div>
                     </div>
@@ -143,21 +115,15 @@
         </div>
     </section>
 
-    {{-- ============================================ --}}
-    {{-- SECCIÓN MÉDICOS --}}
-    {{-- Muestra el equipo médico disponible --}}
-    {{-- ============================================ --}}
+    {{-- EQUIPO MÉDICO - ACTUALIZADO CON APELLIDO Y ESPECIALIDAD --}}
     @if($medicos->count() > 0)
     <section class="py-16 bg-gray-50">
         <div class="container mx-auto px-4">
             <div class="text-center mb-12">
                 <h2 class="text-4xl font-bold text-gray-800 mb-4">
-                    <i class="fas fa-user-md text-blue-600 mr-3"></i>
-                    Nuestro Equipo Médico
+                    <i class="fas fa-user-md text-blue-600 mr-3"></i>Nuestro Equipo Médico
                 </h2>
-                <p class="text-gray-600">
-                    Profesionales altamente calificados a su servicio
-                </p>
+                <p class="text-gray-600">Profesionales altamente calificados a su servicio</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -170,16 +136,25 @@
                         </div>
                         <div class="p-6 text-center">
                             <h3 class="text-xl font-bold text-gray-800 mb-2">
-                                Dr(a). {{ $medico->nombre }}
+                                Dr(a). {{ $medico->nombre }} {{ $medico->apellido }}
                             </h3>
-                            <p class="text-blue-600 font-semibold mb-3">
-                                {{ $medico->especialidad }}
+                            <p class="text-blue-600 font-semibold mb-2">
+                                {{ $medico->especialidad->nombre }}
                             </p>
+                            @if($medico->consultorio)
+                                <p class="text-sm text-gray-600 mb-2">
+                                    <i class="fas fa-door-open mr-1"></i>{{ $medico->consultorio }}
+                                </p>
+                            @endif
+                            @if($medico->turno)
+                                <p class="text-xs text-gray-500 mb-3">
+                                    <i class="fas fa-clock mr-1"></i>Turno: {{ $medico->turno }}
+                                </p>
+                            @endif
                             @guest
                                 <a href="{{ route('register') }}" 
                                    class="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
-                                    <i class="fas fa-calendar-alt mr-2"></i>
-                                    Agendar Cita
+                                    <i class="fas fa-calendar-alt mr-2"></i>Agendar Cita
                                 </a>
                             @endguest
                         </div>
@@ -190,14 +165,10 @@
     </section>
     @endif
 
-    {{-- ============================================ --}}
-    {{-- SECCIÓN MISIÓN Y VISIÓN --}}
-    {{-- Información institucional de la clínica --}}
-    {{-- ============================================ --}}
+    {{-- MISIÓN Y VISIÓN --}}
     <section class="py-16 bg-white">
         <div class="container mx-auto px-4">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                {{-- Misión --}}
                 <div class="bg-gradient-to-br from-blue-50 to-white p-8 rounded-2xl shadow-lg border border-blue-100">
                     <div class="flex items-center mb-4">
                         <div class="bg-blue-600 p-4 rounded-full mr-4">
@@ -210,7 +181,6 @@
                     </p>
                 </div>
 
-                {{-- Visión --}}
                 <div class="bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl shadow-lg border border-green-100">
                     <div class="flex items-center mb-4">
                         <div class="bg-green-600 p-4 rounded-full mr-4">
@@ -226,22 +196,16 @@
         </div>
     </section>
 
-    {{-- ============================================ --}}
-    {{-- SECCIÓN CONTACTO E INFORMACIÓN --}}
-    {{-- Dirección, teléfono, email, horarios --}}
-    {{-- Esta es la sección principal de información --}}
-    {{-- ============================================ --}}
+    {{-- CONTACTO --}}
     <section class="py-16 bg-gray-900 text-white">
         <div class="container mx-auto px-4">
             <div class="text-center mb-12">
                 <h2 class="text-4xl font-bold mb-4">
-                    <i class="fas fa-map-marker-alt text-blue-400 mr-3"></i>
-                    Encuéntranos
+                    <i class="fas fa-map-marker-alt text-blue-400 mr-3"></i>Encuéntranos
                 </h2>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {{-- DIRECCIÓN - Ubicación física de la clínica --}}
                 <div class="bg-gray-800 p-6 rounded-xl hover:bg-gray-750 transition">
                     <div class="bg-blue-600 w-14 h-14 rounded-full flex items-center justify-center mb-4">
                         <i class="fas fa-map-marker-alt text-2xl"></i>
@@ -252,24 +216,19 @@
                     </p>
                 </div>
 
-                {{-- TELÉFONO - Número de contacto --}}
                 <div class="bg-gray-800 p-6 rounded-xl hover:bg-gray-750 transition">
                     <div class="bg-green-600 w-14 h-14 rounded-full flex items-center justify-center mb-4">
                         <i class="fas fa-phone text-2xl"></i>
                     </div>
                     <h3 class="text-xl font-bold mb-3">Teléfono</h3>
-                    <p class="text-gray-300">
-                        {{ $clinica->telefono ?? '+591 2 5252525' }}
-                    </p>
+                    <p class="text-gray-300">{{ $clinica->telefono ?? '+591 2 5252525' }}</p>
                     @if($clinica->whatsapp)
                         <p class="text-green-400 mt-2">
-                            <i class="fab fa-whatsapp mr-2"></i>
-                            WhatsApp: {{ $clinica->whatsapp }}
+                            <i class="fab fa-whatsapp mr-2"></i>WhatsApp: {{ $clinica->whatsapp }}
                         </p>
                     @endif
                 </div>
 
-                {{-- EMAIL - Correo electrónico --}}
                 <div class="bg-gray-800 p-6 rounded-xl hover:bg-gray-750 transition">
                     <div class="bg-red-600 w-14 h-14 rounded-full flex items-center justify-center mb-4">
                         <i class="fas fa-envelope text-2xl"></i>
@@ -280,7 +239,6 @@
                     </p>
                 </div>
 
-                {{-- HORARIOS - Días y horas de atención --}}
                 <div class="bg-gray-800 p-6 rounded-xl hover:bg-gray-750 transition">
                     <div class="bg-yellow-600 w-14 h-14 rounded-full flex items-center justify-center mb-4">
                         <i class="fas fa-clock text-2xl"></i>
@@ -292,21 +250,18 @@
                 </div>
             </div>
 
-            {{-- Redes sociales (si están configuradas) --}}
             @if($clinica->facebook || $clinica->instagram)
             <div class="text-center mt-12">
                 <h3 class="text-2xl font-bold mb-4">Síguenos en Redes Sociales</h3>
                 <div class="flex justify-center space-x-6">
                     @if($clinica->facebook)
-                        <a href="{{ $clinica->facebook }}" 
-                           target="_blank"
+                        <a href="{{ $clinica->facebook }}" target="_blank"
                            class="bg-blue-600 w-12 h-12 rounded-full flex items-center justify-center hover:bg-blue-700 transition">
                             <i class="fab fa-facebook-f text-xl"></i>
                         </a>
                     @endif
                     @if($clinica->instagram)
-                        <a href="{{ $clinica->instagram }}" 
-                           target="_blank"
+                        <a href="{{ $clinica->instagram }}" target="_blank"
                            class="bg-pink-600 w-12 h-12 rounded-full flex items-center justify-center hover:bg-pink-700 transition">
                             <i class="fab fa-instagram text-xl"></i>
                         </a>
@@ -317,20 +272,21 @@
         </div>
     </section>
 
-    {{-- ============================================ --}}
-    {{-- FOOTER - Pie de página --}}
-    {{-- Información de copyright y enlaces legales --}}
-    {{-- ============================================ --}}
+    {{-- FOOTER --}}
     <footer class="bg-gray-950 text-gray-400 py-8">
         <div class="container mx-auto px-4 text-center">
-            <p class="mb-2">
-                &copy; {{ date('Y') }} {{ $clinica->nombre }}. Todos los derechos reservados.
-            </p>
-            <p class="text-sm">
-                Sistema de Consulta Médica | Oruro, Bolivia
-            </p>
+            <p class="mb-2">&copy; {{ date('Y') }} {{ $clinica->nombre }}. Todos los derechos reservados.</p>
+            <p class="text-sm">Sistema de Consulta Médica | Oruro, Bolivia</p>
         </div>
     </footer>
 
 </body>
 </html>
+
+{{-- 
+CAMBIOS EN ESTA ACTUALIZACIÓN:
+- Médicos muestran apellido completo
+- Especialidad viene de la relación (especialidad->nombre)
+- Se muestra consultorio y turno si existen
+- Uso de auth()->user()->rutaDashboard() para redirección dinámica
+--}}
