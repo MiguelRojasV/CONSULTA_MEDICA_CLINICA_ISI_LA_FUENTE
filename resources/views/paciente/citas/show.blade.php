@@ -199,7 +199,7 @@
         </div>
 
         {{-- Información de contacto --}}
-        <div class="bg-gradient-to-br from-blue-50 to-white rounded-lg shadow-md p-6 border border-blue-100">
+        <div class="bg-linear-to-br from-blue-50 to-white rounded-lg shadow-md p-6 border border-blue-100">
             <h2 class="text-lg font-bold text-gray-800 mb-4">
                 <i class="fas fa-info-circle text-blue-600 mr-2"></i>
                 Información Importante

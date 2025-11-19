@@ -62,7 +62,7 @@
 
 {{-- Tabla de Horarios --}}
 <div class="bg-white rounded-lg shadow-md overflow-hidden">
-    <div class="p-6 border-b bg-gradient-to-r from-green-50 to-white">
+    <div class="p-6 border-b bg-linear-to-r from-green-50 to-white">
         <h2 class="text-xl font-bold text-gray-800">
             <i class="fas fa-calendar-alt text-green-600 mr-2"></i>
             Horario Semanal de Atención

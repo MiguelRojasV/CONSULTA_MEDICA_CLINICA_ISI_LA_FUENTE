@@ -204,7 +204,7 @@
         </div>
 
         {{-- Información de cuenta --}}
-        <div class="bg-gradient-to-br from-green-50 to-white rounded-lg shadow-md p-6 border border-green-100">
+        <div class="bg-linear-to-br from-green-50 to-white rounded-lg shadow-md p-6 border border-green-100">
             <h2 class="text-xl font-bold text-gray-800 mb-4">
                 <i class="fas fa-info-circle text-green-600 mr-2"></i>
                 Información de Cuenta

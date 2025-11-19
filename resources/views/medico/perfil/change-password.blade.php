@@ -42,7 +42,7 @@
                 </label>
                 <input type="password" 
                        name="current_password" 
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('current_password') border-red-500 @enderror"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('current_password') @enderror"
                        placeholder="Ingrese su contraseña actual"
                        required>
                 @error('current_password')
@@ -63,7 +63,7 @@
                 <input type="password" 
                        name="password" 
                        id="password"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('password') border-red-500 @enderror"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('password') @enderror"
                        placeholder="Ingrese su nueva contraseña"
                        minlength="8"
                        required>
