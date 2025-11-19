@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Medico;
 
 use App\Http\Controllers\Controller;
 use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;  // ← AGREGAR ESTE IMPORT
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -21,9 +22,9 @@ class MedicoDashboardController extends Controller
 {
     /**
      * Muestra el dashboard del médico
-     * @return View
+     * @return View|RedirectResponse  // ← ACTUALIZAR AQUÍ TAMBIÉN
      */
-    public function index(): View
+    public function index(): View|RedirectResponse  // ← CAMBIO PRINCIPAL
     {
         // Obtener el médico autenticado
         $user = Auth::user();

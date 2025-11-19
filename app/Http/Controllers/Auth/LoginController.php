@@ -34,6 +34,7 @@ class LoginController extends Controller
 
             $request->session()->regenerate();
 
+            /** @var \App\Models\User $user */
             $user = Auth::user();
 
             // Validación corregida

@@ -73,7 +73,7 @@ class MedicoRecetaController extends Controller
     /**
      * Muestra el formulario para crear una nueva receta
      */
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse  // ← CAMBIO AQUÍ
     {
         $medico = Auth::user()->medico;
         
@@ -193,7 +193,7 @@ class MedicoRecetaController extends Controller
     /**
      * Muestra los detalles de una receta
      */
-    public function show(Receta $receta): View
+    public function show(Receta $receta): View|RedirectResponse  // ← CAMBIO AQUÍ
     {
         $medico = Auth::user()->medico;
 
@@ -209,7 +209,7 @@ class MedicoRecetaController extends Controller
     /**
      * Muestra el formulario para editar una receta
      */
-    public function edit(Receta $receta): View
+    public function edit(Receta $receta): View|RedirectResponse  // ← CAMBIO AQUÍ
     {
         $medico = Auth::user()->medico;
 
@@ -295,7 +295,7 @@ class MedicoRecetaController extends Controller
     /**
      * Genera el PDF de la receta
      */
-    public function pdf(Receta $receta)
+    public function pdf(Receta $receta)  // ← SIN tipo de retorno (retorna Response de PDF)
     {
         $medico = Auth::user()->medico;
 
