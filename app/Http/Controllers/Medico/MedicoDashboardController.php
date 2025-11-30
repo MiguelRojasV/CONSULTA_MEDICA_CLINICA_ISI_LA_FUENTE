@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * MedicoDashboardController
- * Ubicación: app/Http/Controllers/Medico/MedicoDashboardController.php
+
  * 
  * Controla el panel principal del médico
  * Muestra agenda del día, estadísticas y accesos rápidos

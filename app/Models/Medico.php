@@ -6,25 +6,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
 
-/**
- * Modelo Medico
- * Representa a un médico en el sistema
- * Vinculado a un usuario y tiene una especialidad
- */
+
 class Medico extends Model
 {
-    /**
-     * Tabla asociada al modelo
-     */
+   
     protected $table = 'medicos';
 
-    /**
-     * Campos asignables en masa
-     */
-    /**
-     * Campos asignables masivamente
-     * ACTUALIZADO: Incluye apellido, email, años_experiencia, fecha_contratacion, estado
-     */
     protected $fillable = [
         'user_id',
         'ci',
@@ -43,9 +30,7 @@ class Medico extends Model
         'estado',
     ];
 
-    /**
-     * Campos que deben ser tratados como fechas
-     */
+   
     protected $casts = [
         'fecha_contratacion' => 'date',
         'años_experiencia' => 'integer',
