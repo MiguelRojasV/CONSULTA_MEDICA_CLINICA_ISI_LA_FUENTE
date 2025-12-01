@@ -318,7 +318,11 @@ Route::get('/perfil/horarios', [MedicoPerfilController::class, 'horarios'])
     // Reporte de pacientes
     Route::get('/reportes/pacientes', [AdminReporteController::class, 'pacientes'])
         ->name('reportes.pacientes');
-    
+    Route::get('/reportes/medicos', [AdminReporteController::class, 'medicos'])
+    ->name('reportes.medicos');
+
+    Route::get('/reportes/medicamentos', [AdminReporteController::class, 'medicamentos'])
+    ->name('reportes.medicamentos');
     // Búsqueda avanzada
     Route::get('/busqueda', [AdminReporteController::class, 'busquedaAvanzada'])
         ->name('busqueda');
