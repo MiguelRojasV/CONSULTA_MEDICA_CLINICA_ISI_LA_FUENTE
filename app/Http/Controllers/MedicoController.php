@@ -68,4 +68,5 @@ class MedicoController extends Controller
         return redirect()->route('medicos.index')
             ->with('success', 'Médico eliminado exitosamente');
     }
+    
 }

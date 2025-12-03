@@ -223,14 +223,14 @@ Route::prefix('medico')->name('medico.')->middleware(['auth', 'role:medico'])->g
         ->name('recetas.show');
     
     // Descargar receta en PDF
-    Route::get('/recetas/{receta}/pdf', [MedicoRecetaController::class, 'descargarPDF'])
+    Route::get('/recetas/{receta}/pdf', [MedicoRecetaController::class, 'pdf'])
         ->name('recetas.pdf');
 
     /**
      * Perfil del Médico
      * Ver y editar información profesional
      */
-    Route::get('/perfil', [MedicoPerfilController::class, 'show'])
+    Route::get('/perfil', [MedicoPerfilController::class, 'index'])
         ->name('perfil.show');
     
     Route::get('/perfil/editar', [MedicoPerfilController::class, 'edit'])
@@ -238,6 +238,14 @@ Route::prefix('medico')->name('medico.')->middleware(['auth', 'role:medico'])->g
     
     Route::put('/perfil', [MedicoPerfilController::class, 'update'])
         ->name('perfil.update');
+    Route::get('/perfil/password/editar', [MedicoPerfilController::class, 'editPassword'])
+    ->name('perfil.password.edit');
+
+    Route::put('/perfil/password', [MedicoPerfilController::class, 'updatePassword'])
+    ->name('perfil.password.update');
+
+    Route::get('/perfil/horarios', [MedicoPerfilController::class, 'horarios'])
+    ->name('perfil.horarios');
 });
 
 // ============================================

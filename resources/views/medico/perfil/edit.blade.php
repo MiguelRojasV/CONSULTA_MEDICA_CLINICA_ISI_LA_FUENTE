@@ -1,266 +1,306 @@
 {{-- ============================================ --}}
 {{-- resources/views/medico/perfil/edit.blade.php --}}
-{{-- Vista: Editar Perfil del Médico --}}
+{{-- Editar Perfil del Médico --}}
 {{-- ============================================ --}}
 
 @extends('layouts.medico')
 
-@section('title', 'Editar Mi Perfil')
+@section('title', 'Editar Perfil')
 
 @section('content')
 <div class="mb-6">
-    <h1 class="text-3xl font-bold text-gray-800">Editar Mi Perfil</h1>
-    <p class="text-gray-600 mt-2">Actualice su información personal y profesional</p>
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-800">
+            <i class="fas fa-user-edit mr-3"></i>Editar Mi Perfil
+        </h1>
+        <a href="{{ route('medico.perfil.show') }}" 
+           class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">
+            <i class="fas fa-arrow-left mr-2"></i>Cancelar
+        </a>
+    </div>
 </div>
 
-<div class="max-w-4xl mx-auto">
-    <div class="bg-white rounded-lg shadow-md p-8">
-        <form action="{{ route('medico.perfil.update') }}" method="POST">
-            @csrf
-            @method('PUT')
+<form action="{{ route('medico.perfil.update') }}" method="POST">
+    @csrf
+    @method('PUT')
 
-            {{-- SECCIÓN 1: Datos Personales --}}
-            <div class="mb-8">
-                <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
-                    <i class="fas fa-user text-blue-600 mr-2"></i>
-                    Datos Personales
-                </h3>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {{-- Formulario Principal --}}
+        <div class="lg:col-span-2 space-y-6">
+            {{-- Datos Personales --}}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-id-card text-blue-600 mr-2"></i>
+                    Información Personal
+                </h2>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {{-- Nombre --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="nombre" class="block text-sm font-semibold text-gray-700 mb-2">
                             Nombre <span class="text-red-500">*</span>
                         </label>
                         <input type="text" 
+                               id="nombre" 
                                name="nombre" 
                                value="{{ old('nombre', $medico->nombre) }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('nombre') border-red-500 @enderror"
-                               required>
+                               required
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         @error('nombre')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- Apellido --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="apellido" class="block text-sm font-semibold text-gray-700 mb-2">
                             Apellido <span class="text-red-500">*</span>
                         </label>
                         <input type="text" 
+                               id="apellido" 
                                name="apellido" 
                                value="{{ old('apellido', $medico->apellido) }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('apellido') border-red-500 @enderror"
-                               required>
+                               required
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         @error('apellido')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- CI --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Cédula de Identidad (CI) <span class="text-red-500">*</span>
+                        <label for="ci" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Carnet de Identidad <span class="text-red-500">*</span>
                         </label>
                         <input type="text" 
+                               id="ci" 
                                name="ci" 
                                value="{{ old('ci', $medico->ci) }}"
-                               maxlength="8"
+                               required
                                pattern="[0-9]{7,8}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('ci') border-red-500 @enderror"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">7-8 dígitos numéricos</p>
+                               maxlength="8"
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        <p class="text-xs text-gray-500 mt-1">7 u 8 dígitos</p>
                         @error('ci')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- Email --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="telefono" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Teléfono <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" 
+                               id="telefono" 
+                               name="telefono" 
+                               value="{{ old('telefono', $medico->telefono) }}"
+                               required
+                               pattern="[0-9]{7,8}"
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        @error('telefono')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
                             Correo Electrónico <span class="text-red-500">*</span>
                         </label>
                         <input type="email" 
+                               id="email" 
                                name="email" 
-                               value="{{ old('email', $medico->email ?? $user->email) }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('email') border-red-500 @enderror"
-                               required>
+                               value="{{ old('email', $medico->email) }}"
+                               required
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         @error('email')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    {{-- Teléfono --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Teléfono <span class="text-red-500">*</span>
-                        </label>
-                        <input type="tel" 
-                               name="telefono" 
-                               value="{{ old('telefono', $medico->telefono) }}"
-                               maxlength="15"
-                               pattern="[0-9]{7,8}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('telefono') border-red-500 @enderror"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">7-8 dígitos</p>
-                        @error('telefono')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
             </div>
 
-            {{-- SECCIÓN 2: Datos Profesionales --}}
-            <div class="mb-8">
-                <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
-                    <i class="fas fa-user-md text-green-600 mr-2"></i>
-                    Datos Profesionales
-                </h3>
+            {{-- Datos Profesionales --}}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-stethoscope text-green-600 mr-2"></i>
+                    Información Profesional
+                </h2>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {{-- Especialidad --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="especialidad_id" class="block text-sm font-semibold text-gray-700 mb-2">
                             Especialidad <span class="text-red-500">*</span>
                         </label>
-                        <select name="especialidad_id"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('especialidad_id') border-red-500 @enderror"
-                                required>
-                            <option value="">Seleccione una especialidad</option>
+                        <select id="especialidad_id" 
+                                name="especialidad_id" 
+                                required
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <option value="">-- Seleccionar --</option>
                             @foreach($especialidades as $especialidad)
-                                <option value="{{ $especialidad->id }}" 
+                                <option value="{{ $especialidad->id }}"
                                         {{ old('especialidad_id', $medico->especialidad_id) == $especialidad->id ? 'selected' : '' }}>
                                     {{ $especialidad->nombre }}
                                 </option>
                             @endforeach
                         </select>
                         @error('especialidad_id')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- Matrícula --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="matricula" class="block text-sm font-semibold text-gray-700 mb-2">
                             Matrícula Profesional <span class="text-red-500">*</span>
                         </label>
                         <input type="text" 
+                               id="matricula" 
                                name="matricula" 
                                value="{{ old('matricula', $medico->matricula) }}"
-                               maxlength="50"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('matricula') border-red-500 @enderror"
-                               required>
+                               required
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         @error('matricula')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- Registro Profesional --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="registro_profesional" class="block text-sm font-semibold text-gray-700 mb-2">
                             Registro Profesional
                         </label>
                         <input type="text" 
+                               id="registro_profesional" 
                                name="registro_profesional" 
                                value="{{ old('registro_profesional', $medico->registro_profesional) }}"
-                               maxlength="50"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        @error('registro_profesional')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
 
-                    {{-- Años de Experiencia --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="años_experiencia" class="block text-sm font-semibold text-gray-700 mb-2">
                             Años de Experiencia
                         </label>
                         <input type="number" 
+                               id="años_experiencia" 
                                name="años_experiencia" 
                                value="{{ old('años_experiencia', $medico->años_experiencia) }}"
                                min="0"
                                max="70"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent @error('años_experiencia') border-red-500 @enderror">
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                         @error('años_experiencia')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- Turno --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="turno" class="block text-sm font-semibold text-gray-700 mb-2">
                             Turno de Trabajo
                         </label>
-                        <select name="turno"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                            <option value="">Seleccione un turno</option>
+                        <select id="turno" 
+                                name="turno"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <option value="">-- Seleccionar --</option>
                             <option value="Mañana" {{ old('turno', $medico->turno) == 'Mañana' ? 'selected' : '' }}>Mañana</option>
                             <option value="Tarde" {{ old('turno', $medico->turno) == 'Tarde' ? 'selected' : '' }}>Tarde</option>
                             <option value="Noche" {{ old('turno', $medico->turno) == 'Noche' ? 'selected' : '' }}>Noche</option>
                             <option value="Rotativo" {{ old('turno', $medico->turno) == 'Rotativo' ? 'selected' : '' }}>Rotativo</option>
                         </select>
+                        @error('turno')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
 
-                    {{-- Consultorio --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label for="consultorio" class="block text-sm font-semibold text-gray-700 mb-2">
                             Consultorio
                         </label>
                         <input type="text" 
+                               id="consultorio" 
                                name="consultorio" 
                                value="{{ old('consultorio', $medico->consultorio) }}"
-                               maxlength="100"
                                placeholder="Ej: Consultorio 101"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        @error('consultorio')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
                     </div>
-                </div>
 
-                {{-- Formación Continua --}}
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Formación Continua (Cursos, Certificaciones)
-                    </label>
-                    <textarea name="formacion_continua"
-                              rows="4"
-                              maxlength="1000"
-                              placeholder="Describa sus cursos, certificaciones y formación adicional..."
-                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">{{ old('formacion_continua', $medico->formacion_continua) }}</textarea>
-                    <p class="text-xs text-gray-500 mt-1">Máximo 1000 caracteres</p>
+                    <div class="md:col-span-2">
+                        <label for="formacion_continua" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Formación Continua
+                        </label>
+                        <textarea id="formacion_continua" 
+                                  name="formacion_continua" 
+                                  rows="4"
+                                  placeholder="Cursos, certificaciones, diplomados, maestrías..."
+                                  class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">{{ old('formacion_continua', $medico->formacion_continua) }}</textarea>
+                        @error('formacion_continua')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
                 </div>
             </div>
 
             {{-- Botones --}}
-            <div class="flex justify-between items-center pt-6 border-t">
-                <a href="{{ route('medico.perfil.index') }}" 
-                   class="text-gray-600 hover:text-gray-800 transition">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Cancelar
-                </a>
-                <button type="submit" 
-                        class="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-200 shadow-lg hover:shadow-xl">
-                    <i class="fas fa-save mr-2"></i>
-                    Guardar Cambios
-                </button>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-end space-x-4">
+                    <a href="{{ route('medico.perfil.show') }}" 
+                       class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition">
+                        <i class="fas fa-times mr-2"></i>Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
+                        <i class="fas fa-save mr-2"></i>Guardar Cambios
+                    </button>
+                </div>
             </div>
-        </form>
-    </div>
+        </div>
 
-    {{-- Información de ayuda --}}
-    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p class="text-sm text-gray-700">
-            <i class="fas fa-info-circle text-blue-600 mr-2"></i>
-            <strong>Importante:</strong> Los campos marcados con <span class="text-red-500">*</span> son obligatorios. Asegúrese de que su información de contacto esté actualizada.
-        </p>
+        {{-- Sidebar --}}
+        <div class="space-y-6">
+            {{-- Vista Previa --}}
+            <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                <div class="bg-green-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-user-md text-green-600 text-4xl"></i>
+                </div>
+                <h3 class="font-bold text-gray-800 text-lg mb-1">
+                    Dr(a). {{ $medico->nombre }} {{ $medico->apellido }}
+                </h3>
+                <p class="text-gray-600">{{ $medico->especialidad->nombre }}</p>
+            </div>
+
+            {{-- Ayuda --}}
+            <div class="bg-blue-50 border-l-4 border-blue-500 rounded-r p-4">
+                <h3 class="font-bold text-blue-800 mb-2 text-sm">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Información Importante
+                </h3>
+                <ul class="text-xs text-blue-700 space-y-1">
+                    <li>• Los campos con (*) son obligatorios</li>
+                    <li>• El CI debe tener 7 u 8 dígitos</li>
+                    <li>• El email debe ser único en el sistema</li>
+                    <li>• La matrícula debe ser única</li>
+                    <li>• Verifique bien sus datos antes de guardar</li>
+                </ul>
+            </div>
+
+            {{-- Enlaces Adicionales --}}
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-link text-purple-600 mr-2"></i>
+                    Enlaces Rápidos
+                </h3>
+
+                <div class="space-y-2">
+                    <a href="{{ route('medico.perfil.password.edit') }}" 
+                       class="block bg-yellow-600 text-white text-center px-4 py-2 rounded hover:bg-yellow-700 transition text-sm">
+                        <i class="fas fa-key mr-2"></i>Cambiar Contraseña
+                    </a>
+                    <a href="{{ route('medico.perfil.horarios') }}" 
+                       class="block bg-purple-600 text-white text-center px-4 py-2 rounded hover:bg-purple-700 transition text-sm">
+                        <i class="fas fa-clock mr-2"></i>Ver Horarios
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+</form>
 @endsection
-
-{{-- 
-CARACTERÍSTICAS DE ESTA VISTA:
-1. Formulario completo con todos los campos del médico
-2. Validaciones HTML5 (pattern, maxlength, required)
-3. Campos divididos en: Personales y Profesionales
-4. Select de especialidades cargado dinámicamente
-5. Manejo de errores de validación
-6. Mensajes de ayuda en campos específicos
-7. Diseño responsive
-8. Botones de cancelar y guardar
-9. Compatible con estructura 3FN de la BD
---}}
